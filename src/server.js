@@ -13,7 +13,7 @@ app.use(cors());
 
 app.use(express.json());
 
-async function captureScreenshot(url, delay = 0) {
+async function captureScreenshot(url, delay = 0, width = 1080, height = 1080) {
     const browser = await puppeteer.launch({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -22,9 +22,24 @@ async function captureScreenshot(url, delay = 0) {
     try {
         const page = await browser.newPage();
         
-        // Add recording parameter to URL
-        const urlWithRecording = new URL(url);
-        urlWithRecording.searchParams.set('recording', 'photo');
+        // Set viewport size
+        await page.setViewport({
+            width: parseInt(width),
+            height: parseInt(height)
+        });
+        
+        // Add recording parameter to URL safely
+        let urlWithRecording;
+        try {
+            urlWithRecording = new URL(url);
+        } catch (e) {
+            throw new Error('Invalid URL provided');
+        }
+        
+        // Only add recording parameter if it doesn't exist
+        if (!urlWithRecording.searchParams.has('recording')) {
+            urlWithRecording.searchParams.set('recording', 'photo');
+        }
         
         await page.goto(urlWithRecording.toString(), { waitUntil: 'networkidle0' });
         
@@ -32,9 +47,11 @@ async function captureScreenshot(url, delay = 0) {
             await new Promise(resolve => setTimeout(resolve, delay));
         }
         
+        // Capture screenshot as buffer
         const screenshot = await page.screenshot({
             fullPage: true,
-            type: 'png'
+            type: 'png',
+            encoding: 'binary'
         });
         
         return screenshot;
@@ -45,19 +62,24 @@ async function captureScreenshot(url, delay = 0) {
 
 app.post('/screenshot', async (req, res) => {
     try {
-        const { url, delay } = req.body;
+        const { url, delay, width, height } = req.body;
         
         if (!url) {
             return res.status(400).json({ error: 'URL is required' });
         }
         
-        const screenshot = await captureScreenshot(url, parseInt(delay) || 0);
+        const screenshot = await captureScreenshot(
+            url,
+            parseInt(delay) || 0,
+            parseInt(width) || 1080,
+            parseInt(height) || 1080
+        );
         
         res.setHeader('Content-Type', 'image/png');
-        res.send(screenshot);
+        res.send(Buffer.from(screenshot));
     } catch (error) {
         console.error('Screenshot error:', error);
-        res.status(500).json({ error: 'Failed to capture screenshot' });
+        res.status(500).json({ error: error.message || 'Failed to capture screenshot' });
     }
 });
 
