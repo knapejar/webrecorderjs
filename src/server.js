@@ -3,9 +3,13 @@ const puppeteer = require('puppeteer');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cors = require('cors');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
+
+// Enable CORS for all routes
+app.use(cors());
 
 app.use(express.json());
 
