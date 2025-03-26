@@ -8,6 +8,7 @@ A simple API service that captures screenshots of websites with configurable del
 - Configurable delay after page load before capture
 - Returns PNG images
 - Fully containerized with Docker
+- Automatically adds `recording=photo` parameter to URLs for site detection
 
 ## Installation
 
@@ -41,6 +42,8 @@ docker run -p 3000:3000 webrecorderjs
 
 - `url` (required): The website URL to capture
 - `delay` (optional): Delay in milliseconds after page load before taking the screenshot (default: 0)
+
+**Note:** The service automatically adds `recording=photo` parameter to the URL. This allows websites to detect when they are being recorded and adjust their behavior accordingly.
 
 **Response:**
 - Content-Type: `image/png`

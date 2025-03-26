@@ -6,7 +6,7 @@ const path = require('path');
 const app = require('./server');
 
 describe('Screenshot API', () => {
-    it('should capture screenshot of charts.test.esgrovia.cz after 1 second delay', async () => {
+    it('should capture screenshot of charts.test.esgrovia.cz after 1 second delay with recording parameter', async () => {
         const response = await request(app)
             .post('/screenshot')
             .send({

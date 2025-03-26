@@ -17,7 +17,12 @@ async function captureScreenshot(url, delay = 0) {
     
     try {
         const page = await browser.newPage();
-        await page.goto(url, { waitUntil: 'networkidle0' });
+        
+        // Add recording parameter to URL
+        const urlWithRecording = new URL(url);
+        urlWithRecording.searchParams.set('recording', 'photo');
+        
+        await page.goto(urlWithRecording.toString(), { waitUntil: 'networkidle0' });
         
         if (delay > 0) {
             await new Promise(resolve => setTimeout(resolve, delay));
