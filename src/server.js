@@ -41,6 +41,8 @@ async function captureScreenshot(url, delay = 0, width = 1080, height = 1080) {
             urlWithRecording.searchParams.set('recording', 'photo');
         }
         
+        console.log("urlWithRecording", urlWithRecording.toString());
+
         await page.goto(urlWithRecording.toString(), { waitUntil: 'networkidle0' });
         
         if (delay > 0) {
