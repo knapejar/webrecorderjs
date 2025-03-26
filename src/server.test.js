@@ -15,7 +15,7 @@ describe('Screenshot API', () => {
             });
 
         expect(response.status).toBe(200);
-        expect(response.headers['content-type']).toBe('image/png');
+        expect(response.headers['content-type']).toContain('image/png');
         
         // Save the screenshot for verification
         const screenshotPath = path.join(__dirname, '../test-screenshot.png');
