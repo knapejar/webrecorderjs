@@ -16,16 +16,17 @@ app.use(express.json());
 async function captureScreenshot(url, delay = 0, width = 1080, height = 1080) {
     const browser = await puppeteer.launch({
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-device-scale-factor']
     });
     
     try {
         const page = await browser.newPage();
         
-        // Set viewport size
+        // Set viewport size with 2x device scale factor for zoom
         await page.setViewport({
             width: parseInt(width),
-            height: parseInt(height)
+            height: parseInt(height),
+            deviceScaleFactor: 4
         });
         
         // Add recording parameter to URL safely
