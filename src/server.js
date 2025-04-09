@@ -4,16 +4,17 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
+const sharp = require('sharp');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 // Enable CORS for all routes
 app.use(cors());
-
 app.use(express.json());
 
 async function captureScreenshot(url, delay = 0, width = 940, height = 720) {
+    const deviceScaleFactor = 4;
     const browser = await puppeteer.launch({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-device-scale-factor']
@@ -22,11 +23,11 @@ async function captureScreenshot(url, delay = 0, width = 940, height = 720) {
     try {
         const page = await browser.newPage();
         
-        // Set viewport size with 2x device scale factor for zoom
+        // Set viewport size with 4x deviceScaleFactor for zoom
         await page.setViewport({
             width: parseInt(width),
             height: parseInt(height),
-            deviceScaleFactor: 4
+            deviceScaleFactor
         });
         
         // Add recording parameter to URL safely
@@ -37,7 +38,6 @@ async function captureScreenshot(url, delay = 0, width = 940, height = 720) {
             throw new Error('Invalid URL provided');
         }
         
-        // Only add recording parameter if it doesn't exist
         if (!urlWithRecording.searchParams.has('recording')) {
             urlWithRecording.searchParams.set('recording', 'photo');
         }
@@ -50,12 +50,22 @@ async function captureScreenshot(url, delay = 0, width = 940, height = 720) {
             await new Promise(resolve => setTimeout(resolve, delay));
         }
         
-        // Capture screenshot as buffer
-        const screenshot = await page.screenshot({
+        // Capture full-page screenshot as a buffer
+        let screenshot = await page.screenshot({
             fullPage: true,
             type: 'png',
             encoding: 'binary'
         });
+
+        // Crop the screenshot if its height exceeds deviceScaleFactor * height
+        const maxScreenshotHeight = deviceScaleFactor * height;
+        const image = sharp(screenshot);
+        const metadata = await image.metadata();
+        if (metadata.height > maxScreenshotHeight) {
+            screenshot = await image
+                .extract({ left: 0, top: 0, width: metadata.width, height: maxScreenshotHeight })
+                .toBuffer();
+        }
         
         return screenshot;
     } finally {
@@ -86,7 +96,6 @@ app.post('/screenshot', async (req, res) => {
     }
 });
 
-// Only start the server if this file is run directly
 if (require.main === module) {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
@@ -94,4 +103,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = app; 
+module.exports = app;
