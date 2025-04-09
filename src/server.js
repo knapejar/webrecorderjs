@@ -13,7 +13,7 @@ app.use(cors());
 
 app.use(express.json());
 
-async function captureScreenshot(url, delay = 0, width = 1080, height = 1080) {
+async function captureScreenshot(url, delay = 0, width = 940, height = 720) {
     const browser = await puppeteer.launch({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-device-scale-factor']
@@ -74,8 +74,8 @@ app.post('/screenshot', async (req, res) => {
         const screenshot = await captureScreenshot(
             url,
             parseInt(delay) || 0,
-            parseInt(width) || 1080,
-            parseInt(height) || 1080
+            parseInt(width) || 940,
+            parseInt(height) || 720
         );
         
         res.setHeader('Content-Type', 'image/png');
