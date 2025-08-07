@@ -13,16 +13,61 @@ const upload = multer({ dest: 'uploads/' });
 app.use(cors());
 app.use(express.json());
 
-async function captureScreenshot(url, delay = 0, width = 940, height = 720) {
-    const deviceScaleFactor = 4;
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-device-scale-factor']
+// Global browser instance and queue
+let globalBrowser = null;
+const requestQueue = [];
+let isProcessingQueue = false;
+
+async function initializeBrowser() {
+    if (!globalBrowser) {
+        console.log('Initializing browser...');
+        globalBrowser = await puppeteer.launch({
+            headless: 'new',
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-device-scale-factor']
+        });
+        console.log('Browser initialized successfully');
+    }
+    return globalBrowser;
+}
+
+async function processQueue() {
+    if (isProcessingQueue || requestQueue.length === 0) {
+        return;
+    }
+    
+    isProcessingQueue = true;
+    
+    while (requestQueue.length > 0) {
+        const { url, delay, width, height, resolve, reject } = requestQueue.shift();
+        
+        try {
+            const screenshot = await captureScreenshotWithBrowser(url, delay, width, height);
+            resolve(screenshot);
+        } catch (error) {
+            reject(error);
+        }
+    }
+    
+    isProcessingQueue = false;
+}
+
+function queueScreenshotRequest(url, delay = 0, width = 940, height = 720) {
+    return new Promise((resolve, reject) => {
+        requestQueue.push({ url, delay, width, height, resolve, reject });
+        processQueue();
     });
+}
+
+async function captureScreenshotWithBrowser(url, delay = 0, width = 940, height = 720) {
+    const deviceScaleFactor = 4;
+    
+    // Ensure browser is initialized
+    const browser = await initializeBrowser();
+    
+    // Create a new page for this request
+    const page = await browser.newPage();
     
     try {
-        const page = await browser.newPage();
-        
         // Set viewport size with 4x deviceScaleFactor for zoom
         await page.setViewport({
             width: parseInt(width),
@@ -69,7 +114,8 @@ async function captureScreenshot(url, delay = 0, width = 940, height = 720) {
         
         return screenshot;
     } finally {
-        await browser.close();
+        // Close the page but keep the browser open
+        await page.close();
     }
 }
 
@@ -81,7 +127,7 @@ app.post('/screenshot', async (req, res) => {
             return res.status(400).json({ error: 'URL is required' });
         }
         
-        const screenshot = await captureScreenshot(
+        const screenshot = await queueScreenshotRequest(
             url,
             parseInt(delay) || 0,
             parseInt(width) || 940,
@@ -96,10 +142,37 @@ app.post('/screenshot', async (req, res) => {
     }
 });
 
+// Graceful shutdown handling
+process.on('SIGINT', async () => {
+    console.log('Shutting down gracefully...');
+    if (globalBrowser) {
+        await globalBrowser.close();
+        console.log('Browser closed');
+    }
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    console.log('Shutting down gracefully...');
+    if (globalBrowser) {
+        await globalBrowser.close();
+        console.log('Browser closed');
+    }
+    process.exit(0);
+});
+
 if (require.main === module) {
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
+    
+    // Initialize browser when server starts
+    initializeBrowser().then(() => {
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log('Browser is ready for screenshot requests');
+        });
+    }).catch(error => {
+        console.error('Failed to initialize browser:', error);
+        process.exit(1);
     });
 }
 
