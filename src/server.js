@@ -119,6 +119,93 @@ async function captureScreenshotWithBrowser(url, delay = 0, width = 940, height 
     }
 }
 
+// File listing endpoint - returns array of uploaded files
+app.get('/files', (req, res) => {
+    try {
+        const uploadsDir = path.join(__dirname, '../uploads');
+        
+        // Ensure uploads directory exists
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+            return res.json([]);
+        }
+        
+        // Read files from uploads directory
+        const files = fs.readdirSync(uploadsDir)
+            .filter(filename => {
+                // Filter out directories and hidden files
+                const filePath = path.join(uploadsDir, filename);
+                return fs.statSync(filePath).isFile() && !filename.startsWith('.');
+            })
+            .map(filename => {
+                const filePath = path.join(uploadsDir, filename);
+                const stats = fs.statSync(filePath);
+                return {
+                    filename,
+                    size: stats.size,
+                    uploadDate: stats.mtime.toISOString(),
+                    path: `/files/${filename}`
+                };
+            });
+        
+        res.json(files);
+    } catch (error) {
+        console.error('File listing error:', error);
+        // Always return an array to prevent forEach errors
+        res.status(500).json([]);
+    }
+});
+
+// File upload endpoint
+app.post('/files', upload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        
+        const fileInfo = {
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            size: req.file.size,
+            uploadDate: new Date().toISOString(),
+            path: `/files/${req.file.filename}`
+        };
+        
+        res.json({ message: 'File uploaded successfully', file: fileInfo });
+    } catch (error) {
+        console.error('File upload error:', error);
+        res.status(500).json({ error: 'Failed to upload file' });
+    }
+});
+
+// File download/serve endpoint
+app.get('/files/:filename', (req, res) => {
+    try {
+        const filename = req.params.filename;
+        
+        // Basic security: prevent path traversal
+        if (filename.includes('../') || filename.includes('..\\')) {
+            return res.status(400).json({ error: 'Invalid filename' });
+        }
+        
+        const filePath = path.join(__dirname, '../uploads', filename);
+        
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+        
+        // Ensure it's actually a file and not a directory
+        if (!fs.statSync(filePath).isFile()) {
+            return res.status(400).json({ error: 'Invalid file' });
+        }
+        
+        res.sendFile(path.resolve(filePath));
+    } catch (error) {
+        console.error('File download error:', error);
+        res.status(500).json({ error: 'Failed to download file' });
+    }
+});
+
 app.post('/screenshot', async (req, res) => {
     try {
         const { url, delay, width, height } = req.body;
