@@ -91,8 +91,10 @@ async function captureScreenshotWithBrowser(url, delay = 0, width = 940, height 
 
         await page.goto(urlWithRecording.toString(), { waitUntil: 'networkidle0' });
         
-        if (delay > 0) {
-            await new Promise(resolve => setTimeout(resolve, delay));
+        if (delay > 0) { // Let the page load
+            await page.evaluate(async(delay) => {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }, delay);
         }
         
         // Capture full-page screenshot as a buffer
